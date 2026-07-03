@@ -109,6 +109,30 @@ body{
 .chapter p{margin:0 0 1.35rem}
 .chapter .divider{height:1px;background:var(--line);border:0;margin:3.4rem auto;width:70%}
 .chapter:last-of-type .divider{display:none}
+/* search */
+.search-overlay{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.5);display:none;padding:7vh 1rem 1rem}
+.search-overlay.open{display:block}
+.search-box{max-width:640px;margin:0 auto;background:var(--surface);border:1px solid var(--line);
+  border-radius:14px;box-shadow:var(--shadow);overflow:hidden;max-height:86vh;display:flex;flex-direction:column}
+.search-head{display:flex;gap:.35rem;padding:.55rem .7rem;border-bottom:1px solid var(--line);align-items:center}
+.search-ico{padding-left:.35rem;color:var(--muted);font-size:.95rem}
+#searchInput{flex:1;border:0;background:transparent;color:var(--ink);font-size:1.05rem;
+  font-family:var(--serif);padding:.45rem .3rem;outline:none}
+.search-results{overflow-y:auto;padding:.2rem 0}
+.search-empty{padding:1.5rem;text-align:center;color:var(--muted);font-size:.9rem;line-height:1.6}
+.search-result{display:block;padding:.7rem 1.1rem;text-decoration:none;border-bottom:1px solid var(--line)}
+.search-result:hover{background:var(--bg)}
+.sr-title{font-size:.92rem;font-weight:700;margin-bottom:.28rem;color:var(--ink)}
+.sr-count{font-size:.7rem;color:var(--accent);border:1px solid var(--accent-soft);border-radius:10px;
+  padding:.02em .5em;margin-left:.4em;font-weight:600;white-space:nowrap}
+.sr-snip{font-size:.85rem;color:var(--ink-soft);line-height:1.6;word-break:keep-all}
+.sr-snip mark,mark.shl{background:#ffe08a;color:#1a1a1a;padding:0 .12em;border-radius:2px;font-weight:600}
+/* drawer download tools */
+.dtools{display:flex;gap:.5rem;padding:.75rem 1.2rem;border-bottom:1px solid var(--line)}
+.dtool{flex:1;display:flex;align-items:center;justify-content:center;gap:.35rem;padding:.6rem .4rem;
+  border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink-soft);font-size:.82rem;
+  font-family:var(--serif);cursor:pointer;text-decoration:none;transition:.15s}
+.dtool:hover{border-color:var(--accent);color:var(--accent)}
 /* fab */
 #toTop{position:fixed;right:1.1rem;bottom:1.1rem;z-index:40;opacity:0;visibility:hidden;transition:.2s}
 #toTop.show{opacity:1;visibility:visible}
@@ -119,13 +143,14 @@ body{
   .chapter{padding:2.9rem 1.3rem .6rem}
   .book-toc{padding:3.5rem 1.3rem 2rem}
 }
+@media (max-width:430px){ .tb-title{display:none} }
 @media print{
   @page{margin:16mm 14mm}
   html,html[data-theme="dark"],html[data-theme="light"]{
     --bg:#fff;--surface:#fff;--ink:#1a1a1a;--ink-soft:#3a3a3a;--muted:#6a6a6a;
     --line:#d5d5d5;--accent:#b5451f;--accent-soft:#f2e8e2;--shadow:none;
   }
-  .topbar,.drawer,.backdrop,#toTop,#progress,.scroll-hint{display:none!important}
+  .topbar,.drawer,.backdrop,#toTop,#progress,.scroll-hint,.search-overlay{display:none!important}
   body{background:#fff;color:#1a1a1a;font-size:11.5pt}
   .cover{min-height:auto;background:#fff;page-break-after:always}
   .cover-img{max-height:94vh;box-shadow:none}
@@ -147,6 +172,7 @@ body{
   <button class="iconbtn" id="menuBtn" aria-label="목차">☰</button>
   <span class="tb-title">대장님의 시선</span>
   <span class="spacer"></span>
+  <button class="iconbtn" id="searchBtn" aria-label="검색">🔍</button>
   <button class="iconbtn sm" id="fsDown" aria-label="글자 작게">A−</button>
   <button class="iconbtn sm" id="fsUp" aria-label="글자 크게">A+</button>
   <button class="iconbtn" id="themeBtn" aria-label="테마">☾</button>
@@ -155,6 +181,10 @@ body{
 <div class="backdrop" id="backdrop"></div>
 <nav class="drawer" id="drawer">
   <div class="dhead"><b>목차</b><button class="iconbtn sm" id="closeBtn" aria-label="닫기">✕</button></div>
+  <div class="dtools">
+    <button class="dtool" id="dlPdf">📄 PDF로 저장</button>
+    <a class="dtool" id="dlHtml" href="index.html" download="대장님의_시선.html">💾 파일 저장</a>
+  </div>
   <div class="toc"><div class="part-t">여는 글</div>
 <a href="#prologue"><span class="n">–</span><span>프롤로그</span></a>
 <a href="#foreword-1"><span class="n">–</span><span>왜 ‘대장님의 시선’인가</span></a>
@@ -261,6 +291,17 @@ body{
 <a href="#ch-87"><span class="n">87</span><span>사회적인 언어를 읽는 법</span></a>
 <a href="#ch-88"><span class="n">88</span><span>수학의 밑바닥</span></a></div>
 </nav>
+
+<div class="search-overlay" id="searchOverlay">
+  <div class="search-box">
+    <div class="search-head">
+      <span class="search-ico">🔍</span>
+      <input id="searchInput" type="search" placeholder="단어·문장 검색…" autocomplete="off" spellcheck="false">
+      <button class="iconbtn sm" id="searchCloseBtn" aria-label="닫기">✕</button>
+    </div>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+</div>
 
 <main>
   <section class="cover">
@@ -642,10 +683,17 @@ function jumpTo(id){
 document.addEventListener('click',e=>{
   const a=e.target.closest('a[href^="#"]'); if(!a) return;
   const id=a.getAttribute('href').slice(1);
-  if(!document.getElementById(id)) return;
+  const el=document.getElementById(id); if(!el) return;
   e.preventDefault();
   if(history.replaceState) history.replaceState(null,'','#'+id);
+  const q=a.getAttribute('data-q');
+  clearHighlights();
   jumpTo(id);
+  if(q){
+    closeSearch();
+    requestAnimationFrame(()=>{ highlightIn(el,q);
+      const m=el.querySelector('mark.shl'); if(m) m.scrollIntoView({block:'center',behavior:'instant'}); });
+  }
   if(drawer.classList.contains('open')) setTimeout(closeD,140);
 });
 // progress + toTop
@@ -668,6 +716,72 @@ const io=new IntersectionObserver((es)=>{
   }});
 },{rootMargin:'-45% 0px -50% 0px',threshold:0});
 document.querySelectorAll('.chapter,.part,.prologue').forEach(s=>io.observe(s));
+
+// ---- download ----
+document.getElementById('dlPdf').onclick=()=>{ if(drawer.classList.contains('open')) closeD(); setTimeout(()=>window.print(),300); };
+
+// ---- search ----
+function esc_(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+const SIDX=[];
+document.querySelectorAll('.prologue,.chapter').forEach(sec=>{
+  const t=sec.querySelector('.pro-title,h3'); const title=t?t.textContent.trim():'';
+  const nEl=sec.querySelector('.cnum'); const num=nEl?nEl.textContent.trim():'';
+  const text=sec.textContent.replace(/\s+/g,' ').trim();
+  SIDX.push({id:sec.id,title:title,num:num,text:text,low:text.toLowerCase()});
+});
+const sOverlay=document.getElementById('searchOverlay'),sInput=document.getElementById('searchInput'),sResults=document.getElementById('searchResults');
+function openSearch(){ sOverlay.classList.add('open'); sInput.focus(); sInput.select(); }
+function closeSearch(){ sOverlay.classList.remove('open'); }
+document.getElementById('searchBtn').onclick=openSearch;
+document.getElementById('searchCloseBtn').onclick=closeSearch;
+sOverlay.addEventListener('click',e=>{ if(e.target===sOverlay) closeSearch(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeSearch(); });
+let sT=null;
+sInput.addEventListener('input',()=>{ clearTimeout(sT); sT=setTimeout(()=>runSearch(sInput.value),140); });
+function runSearch(q){
+  q=(q||'').trim();
+  if(!q){ sResults.innerHTML='<div class="search-empty">단어를 입력하면 챕터별로 찾아드려요</div>'; return; }
+  const lq=q.toLowerCase(), out=[];
+  const reSrc=lq.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  for(const it of SIDX){
+    let p=it.low.indexOf(lq); if(p<0) continue;
+    let c=0,f=0,x; while((x=it.low.indexOf(lq,f))>=0){c++;f=x+lq.length;}
+    const st=Math.max(0,p-22), en=Math.min(it.text.length,p+lq.length+52);
+    const snip=(st>0?'…':'')+it.text.slice(st,en)+(en<it.text.length?'…':'');
+    const snipH=esc_(snip).replace(new RegExp(reSrc,'gi'),m=>'<mark>'+m+'</mark>');
+    out.push({it:it,c:c,snipH:snipH});
+  }
+  if(!out.length){ sResults.innerHTML='<div class="search-empty">“'+esc_(q)+'” 검색 결과가 없습니다</div>'; return; }
+  sResults.innerHTML=out.map(function(o){
+    const label=(o.it.num?o.it.num+'. ':'')+esc_(o.it.title);
+    return '<a class="search-result" href="#'+o.it.id+'" data-q="'+esc_(q)+'">'
+      +'<div class="sr-title">'+label+'<span class="sr-count">'+o.c+'</span></div>'
+      +'<div class="sr-snip">'+o.snipH+'</div></a>';
+  }).join('');
+}
+function clearHighlights(){
+  document.querySelectorAll('mark.shl').forEach(function(m){
+    const par=m.parentNode; par.replaceChild(document.createTextNode(m.textContent),m); par.normalize();
+  });
+}
+function highlightIn(root,q){
+  const lq=(q||'').toLowerCase(); if(!lq) return;
+  const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null);
+  const nodes=[]; let node;
+  while(node=walker.nextNode()){ if(node.nodeValue.toLowerCase().indexOf(lq)>=0) nodes.push(node); }
+  nodes.forEach(function(nd){
+    const s=nd.nodeValue, low=s.toLowerCase(), frag=document.createDocumentFragment();
+    let i=0,p;
+    while((p=low.indexOf(lq,i))>=0){
+      if(p>i) frag.appendChild(document.createTextNode(s.slice(i,p)));
+      const mk=document.createElement('mark'); mk.className='shl'; mk.textContent=s.slice(p,p+lq.length); frag.appendChild(mk);
+      i=p+lq.length;
+    }
+    if(i<s.length) frag.appendChild(document.createTextNode(s.slice(i)));
+    nd.parentNode.replaceChild(frag,nd);
+  });
+}
+runSearch('');
 </script>
 </body>
 </html>
