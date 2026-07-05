@@ -109,6 +109,17 @@ body{
 .chapter p{margin:0 0 1.35rem}
 .chapter .divider{height:1px;background:var(--line);border:0;margin:3.4rem auto;width:70%}
 .chapter:last-of-type .divider{display:none}
+/* copy button (per chapter) */
+.chapter{position:relative}
+.copy-btn{position:absolute;top:1.5rem;right:1.6rem;z-index:5;display:inline-flex;align-items:center;
+  gap:.34rem;border:1px solid var(--line);background:var(--surface);color:var(--muted);
+  padding:.34rem .62rem;border-radius:9px;font-size:.74rem;font-family:var(--serif);font-weight:600;
+  cursor:pointer;line-height:1;opacity:.6;transition:.15s}
+.copy-btn:hover{border-color:var(--accent);color:var(--accent);opacity:1}
+.copy-btn.copied{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);opacity:1}
+.copy-btn .cb-ico{font-size:.9rem}
+@media (max-width:520px){ .copy-btn{top:1rem;right:1.3rem} }
+@media print{ .copy-btn{display:none!important} }
 /* search */
 .search-overlay{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.5);display:none;padding:7vh 1rem 1rem}
 .search-overlay.open{display:block}
@@ -782,6 +793,39 @@ function highlightIn(root,q){
   });
 }
 runSearch('');
+
+// ---- per-chapter copy button ----
+function buildCopyText(ch){
+  const h3=ch.querySelector('h3'); const csub=ch.querySelector('.csub');
+  const title=h3?h3.textContent.trim():''; const sub=csub?csub.textContent.trim():'';
+  const header=sub?('<'+title+', "'+sub+'">'):('<'+title+'>');
+  const paras=Array.from(ch.querySelectorAll('p')).map(p=>p.textContent.trim()).filter(Boolean);
+  return header+'\n\n'+paras.join('\n\n');
+}
+function flashCopied(btn){
+  const lab=btn.querySelector('.cb-label'); btn.classList.add('copied');
+  if(lab){ const prev=lab.textContent; lab.textContent='복사됨';
+    setTimeout(()=>{ lab.textContent=prev; btn.classList.remove('copied'); },1400); }
+}
+function copyChapter(text,btn){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>flashCopied(btn)).catch(()=>copyFallback(text,btn));
+  } else copyFallback(text,btn);
+}
+function copyFallback(text,btn){
+  const ta=document.createElement('textarea'); ta.value=text;
+  ta.style.position='fixed'; ta.style.top='-9999px'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try{ document.execCommand('copy'); flashCopied(btn); }catch(e){}
+  document.body.removeChild(ta);
+}
+document.querySelectorAll('.chapter').forEach(ch=>{
+  const btn=document.createElement('button');
+  btn.type='button'; btn.className='copy-btn'; btn.setAttribute('aria-label','이 꼭지 복사');
+  btn.innerHTML='<span class="cb-ico">⧉</span><span class="cb-label">복사</span>';
+  btn.addEventListener('click',()=>copyChapter(buildCopyText(ch),btn));
+  ch.appendChild(btn);
+});
 </script>
 </body>
 </html>
